@@ -51,6 +51,21 @@ let enemies = [];
 let orbs = [];
 const goal = { x: 5040, y: 320, w: 20, h: 140 };
 
+const bgm = new Audio("./audio/bgm/ABSOLUTE_FUNNY_FIELD.mp3");
+bgm.loop = true;
+bgm.volume = 0.35;
+
+const sounds = {
+  jump: "./audio/se/ジャンプ たたた音.mp3",
+  orb: "./audio/se/ゲット ブラシ.mp3",
+  stomp: "./audio/se/ポヨン.mp3",
+  damage: "./audio/se/グシャーン ブレーキ.mp3",
+  gameOver: "./audio/se/効果音 死を告げる音.mp3",
+  clear: "./audio/se/かっこ悪い勝利.mp3",
+};
+
+let bgmStarted = false;
+
 function resetEntities() {
   enemies = [
     { x: 1180, y: 420, w: 34, h: 28, vx: -1.1, alive: true },
@@ -115,6 +130,24 @@ function hideMessage() {
   overlay.style.display = "none";
 }
 
+function startBgm() {
+  if (bgmStarted) return;
+  bgmStarted = true;
+
+  bgm.play().catch(() => {
+    bgmStarted = false;
+  });
+}
+
+function playSound(name, volume = 0.7) {
+  const src = sounds[name];
+  if (!src) return;
+
+  const audio = new Audio(src);
+  audio.volume = volume;
+  audio.play().catch(() => {});
+}
+
 function rectsOverlap(a, b) {
   return (
     a.x < b.x + b.w &&
@@ -154,7 +187,8 @@ function updatePlayer() {
   if (jump && player.onGround) {
     player.vy = -player.jumpPower;
     player.onGround = false;
-  }
+    playSound("jump", 0.45);
+    }
 
   player.vy += GRAVITY;
 
@@ -231,10 +265,11 @@ function updateEnemies() {
       const stomp = player.vy > 0 && player.y + player.h - enemy.y < 20;
 
       if (stomp) {
-        enemy.alive = false;
-        player.vy = -9;
-        score += 100;
-      } else if (invincibleTimer === 0) {
+            enemy.alive = false;
+            player.vy = -9;
+            score += 100;
+            playSound("stomp", 0.55);
+            } else if (invincibleTimer === 0) {
         loseLife();
       }
     }
@@ -250,6 +285,13 @@ function updateOrbs() {
       orbsCollected++;
       score += 50;
     }
+
+    if (circleRectOverlap(orb, player)) {
+    orb.taken = true;
+    orbsCollected++;
+    score += 50;
+    playSound("orb", 0.5);
+    }
   }
 }
 
@@ -259,6 +301,8 @@ function updateGoal() {
   if (rectsOverlap(player, flagHitbox)) {
     gameClear = true;
     gameStarted = false;
+
+    playSound("clear", 0.7);
 
     showMessage(
       "クリア！",
@@ -275,12 +319,14 @@ function loseLife() {
   if (lives <= 0) {
     gameOver = true;
     gameStarted = false;
+    playSound("gameOver", 0.7);
 
     showMessage(
       "ゲームオーバー",
       `スコア: ${score}<br>オーブ: ${orbsCollected}個<br><br>Rキーまたは画面下のREボタンでやり直し。`
     );
   } else {
+    playSound("damage", 0.6);
     respawn();
   }
 }
@@ -469,6 +515,8 @@ function loop() {
 window.addEventListener("keydown", (e) => {
   keys[e.code] = true;
 
+  startBgm();
+
   if (e.code === "KeyR") {
     fullReset();
     return;
@@ -489,6 +537,10 @@ window.addEventListener("keyup", (e) => {
 });
 
 function setVirtualKey(code, isPressed) {
+  if (isPressed) {
+    startBgm();
+  }
+
   if (code === "KeyR" && isPressed) {
     fullReset();
     return;
