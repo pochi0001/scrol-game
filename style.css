@@ -1,0 +1,211 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #87ceeb 0%, #dff5ff 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  color: #1f2937;
+}
+
+/* ===== レイアウト ===== */
+
+.wrap {
+  width: min(100%, 980px);
+  padding: 20px;
+}
+
+.title {
+  font-size: clamp(24px, 4vw, 40px);
+  font-weight: 800;
+  margin: 8px 0 10px;
+}
+
+.sub {
+  margin: 0 0 16px;
+  line-height: 1.6;
+}
+
+/* ===== 操作説明 ===== */
+
+.hud-guide {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.pill {
+  background: rgba(255,255,255,.86);
+  border: 2px solid rgba(0,0,0,.08);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+}
+
+/* ===== ゲーム本体 ===== */
+
+.game-shell {
+  background: rgba(255,255,255,.2);
+  border-radius: 24px;
+  padding: 14px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.12);
+  backdrop-filter: blur(6px);
+}
+
+.canvas-wrap {
+  position: relative;
+}
+
+canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    #8fd3ff 0%,
+    #c9f0ff 60%,
+    #d8f7c4 60%,
+    #b4e391 100%
+  );
+  border: 3px solid rgba(255,255,255,.8);
+}
+
+/* ===== カード ===== */
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.card {
+  background: rgba(255,255,255,.86);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+.card strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* ===== メッセージ ===== */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  text-align: center;
+  padding: 20px;
+}
+
+.message {
+  background: rgba(255,255,255,.92);
+  padding: 20px 24px;
+  border-radius: 22px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.16);
+  max-width: 520px;
+}
+
+.message h2 {
+  margin: 0 0 10px;
+  font-size: clamp(24px, 4vw, 36px);
+}
+
+.message p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+/* ===== タッチ操作（ここが重要） ===== */
+
+.touch-controls {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  padding: 0 14px;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.touch-left,
+.touch-right {
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+/* ボタン */
+
+.touch-btn {
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 18px;
+  background: rgba(255,255,255,.7);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.14);
+  font-size: 24px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.touch-btn:active {
+  transform: scale(0.95);
+}
+
+/* ジャンプ */
+
+.touch-btn.jump {
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+/* リスタート */
+
+.touch-btn.restart {
+  font-size: 12px;
+}
+
+/* ===== スマホ・タブレット表示 ===== */
+
+@media (max-width: 900px), (pointer: coarse) {
+  .touch-controls {
+    display: flex;
+  }
+}
+
+/* 小さいスマホ */
+
+@media (max-width: 520px) {
+  .touch-btn {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+
+  .touch-btn.jump {
+    width: 68px;
+    height: 68px;
+  }
+}
