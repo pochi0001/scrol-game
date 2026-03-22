@@ -18,6 +18,10 @@ let orbsCollected = 0;
 let lives = 3;
 let score = 0;
 let invincibleTimer = 0;
+let deathAnimationTimer = 0;
+
+let lastSafeX = 100;
+let lastSafeY = 250;
 
 const player = {
   x: 100,
@@ -31,6 +35,8 @@ const player = {
   jumpPower: 14,
   onGround: false,
   facing: 1,
+  isDying: false,
+  rotation: 0,
 };
 
 const platforms = [
@@ -51,17 +57,22 @@ let enemies = [];
 let orbs = [];
 const goal = { x: 5040, y: 320, w: 20, h: 140 };
 
-const bgm = new Audio("./audio/bgm/ABSOLUTE_FUNNY_FIELD.mp3");
+
+
+// ===== 音 =====
+
+// BGM
+const bgm = new Audio("./audio/ステージBGM/ABSOLUTE_FUNNY_FIELD.mp3");
 bgm.loop = true;
 bgm.volume = 0.35;
 
+// 効果音
 const sounds = {
-  jump: "./audio/se/ジャンプ たたた音.mp3",
-  orb: "./audio/se/ゲット ブラシ.mp3",
-  stomp: "./audio/se/ポヨン.mp3",
-  damage: "./audio/se/グシャーン ブレーキ.mp3",
-  gameOver: "./audio/se/効果音 死を告げる音.mp3",
-  clear: "./audio/se/かっこ悪い勝利.mp3",
+  jump: "./audio/効果音/ジャンプ.mp3",
+  coin: "./audio/効果音/コイン.mp3",
+  stomp: "./audio/効果音/踏む.mp3",
+  dead: "./audio/効果音/死.mp3",
+  clear: "./audio/効果音/ゴール.mp3",
 };
 
 let bgmStarted = false;
@@ -94,12 +105,18 @@ function fullReset() {
   player.vy = 0;
   player.onGround = false;
   player.facing = 1;
+  player.isDying = false;
+  player.rotation = 0;
+  
+  lastSafeX = 100;
+  lastSafeY = 250;
 
   cameraX = 0;
   orbsCollected = 0;
   score = 0;
   lives = 3;
   invincibleTimer = 0;
+  deathAnimationTimer = 0;
 
   gameOver = false;
   gameClear = false;
@@ -114,10 +131,13 @@ function fullReset() {
 }
 
 function respawn() {
-  player.x = Math.max(60, player.x - 180);
-  player.y = 200;
+  player.x = lastSafeX;
+  player.y = lastSafeY - 300;
   player.vx = 0;
   player.vy = 0;
+  player.onGround = false;
+  player.isDying = false;
+  player.rotation = 0;
   invincibleTimer = 120;
 }
 
@@ -157,6 +177,23 @@ function rectsOverlap(a, b) {
   );
 }
 
+function isSafeGroundBelow(px, py) {
+  const footX = px + player.w / 2;
+  const footY = py + player.h + 2;
+
+  for (const p of platforms) {
+    const withinX = footX >= p.x + 20 && footX <= p.x + p.w - 20;
+    const nearTop = Math.abs(footY - p.y) < 8;
+    const wideEnough = p.w >= 120;
+
+    if (withinX && nearTop && wideEnough) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function circleRectOverlap(circle, rect) {
   const closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.w));
   const closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.h));
@@ -166,6 +203,8 @@ function circleRectOverlap(circle, rect) {
 }
 
 function updatePlayer() {
+   if (player.isDying) return;
+
   const left = keys["ArrowLeft"] || keys["KeyA"];
   const right = keys["ArrowRight"] || keys["KeyD"];
   const jump = keys["ArrowUp"] || keys["KeyW"] || keys["Space"];
@@ -184,10 +223,10 @@ function updatePlayer() {
   if (player.vx > player.maxSpeed) player.vx = player.maxSpeed;
   if (player.vx < -player.maxSpeed) player.vx = -player.maxSpeed;
 
-  if (jump && player.onGround) {
+    if (jump && player.onGround) {
     player.vy = -player.jumpPower;
     player.onGround = false;
-    playSound("jump", 0.45);
+    playSound("jump", 0.4);
     }
 
   player.vy += GRAVITY;
@@ -222,9 +261,15 @@ function updatePlayer() {
     }
   }
 
-  if (player.y > canvas.height + 200) {
+    if (player.y > GROUND_Y + 40 && !player.isDying) {
     loseLife();
-  }
+    return;
+    }
+
+    if (player.onGround && !player.isDying && isSafeGroundBelow(player.x, player.y)) {
+    lastSafeX = player.x;
+    lastSafeY = player.y;
+    }
 
   cameraX = player.x - canvas.width * 0.35;
   cameraX = Math.max(0, Math.min(cameraX, WORLD_WIDTH - canvas.width));
@@ -233,7 +278,9 @@ function updatePlayer() {
 }
 
 function updateEnemies() {
-  for (const enemy of enemies) {
+    if (player.isDying) return;
+
+    for (const enemy of enemies) {
     if (!enemy.alive) continue;
 
     enemy.x += enemy.vx;
@@ -268,7 +315,7 @@ function updateEnemies() {
             enemy.alive = false;
             player.vy = -9;
             score += 100;
-            playSound("stomp", 0.55);
+            playSound("stomp", 0.6);
             } else if (invincibleTimer === 0) {
         loseLife();
       }
@@ -277,6 +324,8 @@ function updateEnemies() {
 }
 
 function updateOrbs() {
+    if (player.isDying) return;
+
   for (const orb of orbs) {
     if (orb.taken) continue;
 
@@ -284,18 +333,14 @@ function updateOrbs() {
       orb.taken = true;
       orbsCollected++;
       score += 50;
-    }
-
-    if (circleRectOverlap(orb, player)) {
-    orb.taken = true;
-    orbsCollected++;
-    score += 50;
-    playSound("orb", 0.5);
+      playSound("coin", 0.5);
     }
   }
 }
 
 function updateGoal() {
+    if (player.isDying) return;
+
   const flagHitbox = { x: goal.x - 10, y: goal.y, w: 40, h: goal.h };
 
   if (rectsOverlap(player, flagHitbox)) {
@@ -311,24 +356,45 @@ function updateGoal() {
   }
 }
 
+function startDeathAnimation() {
+  player.isDying = true;
+  player.vx = 0;
+  player.vy = -12;   // 上に飛ぶ強さ
+  player.rotation = Math.PI; // 180度で逆さ
+  player.onGround = false;
+  deathAnimationTimer = 0;
+}
+
+function updateDeathAnimation() {
+  deathAnimationTimer++;
+
+  player.y += player.vy;
+  player.vy += GRAVITY * 0.9;
+
+  if (player.y > canvas.height + 120) {
+    player.isDying = false;
+    player.rotation = 0;
+
+    if (lives <= 0) {
+      gameOver = true;
+      gameStarted = false;
+
+      showMessage(
+        "ゲームオーバー",
+        `スコア: ${score}<br>オーブ: ${orbsCollected}個<br><br>Rキーまたは画面下のREボタンでやり直し。`
+      );
+    } else {
+      respawn();
+    }
+  }
+}
+
 function loseLife() {
-  if (gameOver || gameClear) return;
+  if (gameOver || gameClear || player.isDying) return;
 
   lives--;
-
-  if (lives <= 0) {
-    gameOver = true;
-    gameStarted = false;
-    playSound("gameOver", 0.7);
-
-    showMessage(
-      "ゲームオーバー",
-      `スコア: ${score}<br>オーブ: ${orbsCollected}個<br><br>Rキーまたは画面下のREボタンでやり直し。`
-    );
-  } else {
-    playSound("damage", 0.6);
-    respawn();
-  }
+  playSound("dead", 0.7);
+  startDeathAnimation();
 }
 
 function drawBackground() {
@@ -398,25 +464,40 @@ function drawPlatforms() {
 function drawPlayer() {
   const x = player.x - cameraX;
 
-  if (invincibleTimer > 0 && Math.floor(invincibleTimer / 6) % 2 === 0) {
+  if (!player.isDying && invincibleTimer > 0 && Math.floor(invincibleTimer / 6) % 2 === 0) {
     return;
   }
 
+  ctx.save();
+  ctx.translate(x + player.w / 2, player.y + player.h / 2);
+
+  if (player.isDying) {
+    ctx.rotate(player.rotation);
+  }
+
+  const drawX = -player.w / 2;
+  const drawY = -player.h / 2;
+
   ctx.fillStyle = "#7c3aed";
-  ctx.fillRect(x + 6, player.y, 22, 12);
+  ctx.fillRect(drawX + 6, drawY, 22, 12);
 
   ctx.fillStyle = "#fde68a";
-  ctx.fillRect(x + 8, player.y + 10, 18, 12);
+  ctx.fillRect(drawX + 8, drawY + 10, 18, 12);
 
   ctx.fillStyle = "#06b6d4";
-  ctx.fillRect(x + 4, player.y + 22, 26, 18);
+  ctx.fillRect(drawX + 4, drawY + 22, 26, 18);
 
   ctx.fillStyle = "#111827";
-  ctx.fillRect(x + (player.facing === 1 ? 20 : 10), player.y + 14, 4, 4);
+  const eyeX = player.isDying
+    ? 14
+    : (player.facing === 1 ? 20 : 10);
+  ctx.fillRect(drawX + eyeX, drawY + 14, 4, 4);
 
   ctx.fillStyle = "#334155";
-  ctx.fillRect(x + 2, player.y + 40, 10, 4);
-  ctx.fillRect(x + 22, player.y + 40, 10, 4);
+  ctx.fillRect(drawX + 2, drawY + 40, 10, 4);
+  ctx.fillRect(drawX + 22, drawY + 40, 10, 4);
+
+  ctx.restore();
 }
 
 function drawEnemies() {
@@ -501,7 +582,9 @@ function draw() {
 }
 
 function loop() {
-  if (gameStarted && !gameOver && !gameClear) {
+  if (player.isDying) {
+    updateDeathAnimation();
+  } else if (gameStarted && !gameOver && !gameClear) {
     updatePlayer();
     updateEnemies();
     updateOrbs();
